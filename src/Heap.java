@@ -14,6 +14,7 @@ public class Heap
     public HeapNode min;
     private int size;
     private HeapNode first;
+    private HeapNode[] trees;
 
 
     
