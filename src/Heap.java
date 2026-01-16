@@ -16,6 +16,7 @@ public class Heap {
     private int totalMarks = 0;
     private int totalLinks = 0;
     private int totalCuts = 0;
+    private int totalHeapifyOps = 0;
 
     /**
      *
@@ -169,6 +170,16 @@ public class Heap {
 
         if (!this.lazyDecreaseKeys) {
             HeapifyUp(x.node);
+        } else {
+            // Lazy approach: use cascading cuts
+            HeapNode parent = x.node.parent;
+            if (parent != null && x.key < parent.item.key) {
+                CascadingCut(x.node, parent);
+                // Update min if necessary
+                if (x.key < this.min.key) {
+                    this.min = x;
+                }
+            }
         }
     }
 
@@ -178,11 +189,11 @@ public class Heap {
      *
      */
     public void delete(HeapItem x) {
-        // Positive keys requirement means we can make it negative and then deleteMin.
+        // All keys>=0 and so we can make it -1 and so Min
         if (x == null) {
             return;
         }
-        decreaseKey(x, x.key + 1); // shift to a negative value
+        decreaseKey(x, x.key + 1); // make it -1 and so Min
         deleteMin();
     }
 
@@ -198,17 +209,21 @@ public class Heap {
             return;
         }
         if (!(heap2.lazyMelds == this.lazyMelds && heap2.lazyDecreaseKeys == this.lazyDecreaseKeys)) {
-            return; // precondition not met
+            return;
         }
 
         if (heap2.size == 0) {
             return;
         }
         if (this.size == 0) {
-            // adopt heap2
             this.first = heap2.first;
             this.min = heap2.min;
             this.size = heap2.size;
+
+            // Clear heap2
+            heap2.first = null;
+            heap2.min = null;
+            heap2.size = 0;
             return;
         }
 
@@ -226,6 +241,11 @@ public class Heap {
         if (heap2.min != null && heap2.min.key < this.min.key) {
             this.min = heap2.min;
         }
+
+        // Clear heap2
+        heap2.first = null;
+        heap2.min = null;
+        heap2.size = 0;
     }
 
     /**
@@ -294,11 +314,12 @@ public class Heap {
      * 
      */
     public int totalHeapifyCosts() {
-        return 0; // to be implemented based on tracking in HeapifyUp
+        return this.totalHeapifyOps;
     }
 
     public void HeapifyUp(HeapNode x) {
         while (x != null && x.parent != null && x.item.key < x.parent.item.key) {
+            totalHeapifyOps++;
             // swap only HeapItems between nodes
             HeapItem parentItem = x.parent.item;
             x.parent.item = x.item;
@@ -308,6 +329,7 @@ public class Heap {
             if (this.min == null || x.parent.item.key < this.min.key) {
                 this.min = x.parent.item;
             }
+            x = x.parent; // Move up the tree
         }
     }
 
@@ -331,6 +353,12 @@ public class Heap {
             x.next.prev = x.prev;
         }
 
+        // Add to root list
+        HeapNode last = this.first.prev;
+        last.next = x;
+        x.prev = last;
+        x.next = this.first;
+        this.first.prev = x;
     }
 
     public void CascadingCut(HeapNode x, HeapNode y) {
@@ -375,13 +403,13 @@ public class Heap {
         HeapNode x = null;
         for (int i = 0; i < buckets.length; i++) {
             if (buckets[i] != null) {
-                if (x != null) {
+                if (x == null) {
                     x = buckets[i];
                     x.next = x;
                     x.prev = x;
                 } else {
                     insertAfter(x, buckets[i]);
-                    if (buckets[i].item.key < x.item.key) { // I AM NOT SUTE ABOUT THIS PART AND HeapItem
+                    if (buckets[i].item.key < x.item.key) {
                         x = buckets[i];
                     }
                 }
@@ -394,9 +422,8 @@ public class Heap {
     public HeapNode link(HeapNode x, HeapNode y) {
         totalLinks++; // Track link operations
         if (x.item.key < y.item.key) {
-            // Make y child of x, removes y from root list
-            y.prev.next = y.next;
-            y.next.prev = y.prev;
+            // Make y child of x
+
             // Adds y to x's child list
             if (x.child == null) {
                 x.child = y;
@@ -409,10 +436,8 @@ public class Heap {
             x.rank++;
             return x;
         } else {
-            // Makes x child of y
-            // Removes x from root list
-            x.prev.next = x.next;
-            x.next.prev = x.prev;
+            // Make x child of y
+
             // Adds x to y's child list
             if (y.child == null) {
                 y.child = x;
